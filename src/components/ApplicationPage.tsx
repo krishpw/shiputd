@@ -246,7 +246,7 @@ const Mentors: React.FC = () => {
     const leaders = [
         { name: "Krish Naresh", role: "National Founder", signal: "Incoming Summer Analyst @ J.P. Morgan" },
         { name: "Shyamal Desai", role: "UTD President", signal: "Ex-State Farm, Day Lewis" },
-        { name: "Naavya Vig", role: "E-Board / National Founder", signal: "Founder @ Hubbl" }
+        { name: "Naavya Vig", role: "E-Board / National Founder", signal: "Founder @ Hubble" }
     ];
     return (
         <section className="py-24 px-6 bg-[#02040A]">
