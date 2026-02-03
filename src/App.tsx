@@ -15,9 +15,6 @@ import { ApplicationPage } from './components/ApplicationPage';
 import { AppState, SavedModel, VoxelData } from './types';
 import { GoogleGenAI, Type } from '@google/genai';
 
-// Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 const INITIAL_MODEL = 'UTDCampus';
 
 const App: React.FC = () => {
@@ -106,9 +103,15 @@ const App: React.FC = () => {
   };
 
   const handlePromptSubmit = async (prompt: string) => {
+      if (!process.env.API_KEY) {
+          alert("API Key is missing. Please configure it in Vercel Settings.");
+          return;
+      }
+      
       setIsGenerating(true);
       
       try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const schema = {
             type: Type.ARRAY,
             items: {
