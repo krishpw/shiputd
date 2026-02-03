@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+// FIXED: Added .js extension for Vite/Vercel compatibility
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { AppState, SimulationVoxel, RebuildTarget, VoxelData } from '../types';
-import { CONFIG, COLORS } from '../utils/voxelConstants';
+import { CONFIG } from '../utils/voxelConstants';
 
 export class VoxelEngine {
   private container: HTMLElement;
@@ -47,7 +47,6 @@ export class VoxelEngine {
     this.scene.fog = new THREE.Fog(CONFIG.BG_COLOR, 50, 600); 
 
     this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-    // Start VERY high up for Intro
     this.camera.position.copy(this.startCameraPos);
     this.camera.lookAt(0, 0, 0);
 
@@ -59,11 +58,10 @@ export class VoxelEngine {
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
-    this.controls.enabled = false; // Disable initially for intro
-    this.controls.autoRotate = false; // We control rotation manually in intro
+    this.controls.enabled = false; 
+    this.controls.autoRotate = false; 
     this.controls.target.set(0, 5, 0);
 
-    // Lights
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     this.scene.add(ambientLight);
 
@@ -74,7 +72,6 @@ export class VoxelEngine {
     dirLight.shadow.mapSize.height = 2048;
     this.scene.add(dirLight);
 
-    // Floor
     const planeMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 1 });
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), planeMat);
     floor.rotation.x = -Math.PI / 2;
@@ -95,7 +92,6 @@ export class VoxelEngine {
   public loadInitialModel(data: VoxelData[]) {
     this.createVoxels(data);
     this.onCountChange(this.voxels.length);
-    // State remains INTRO until user clicks
     this.onStateChange(this.state);
   }
 
@@ -141,7 +137,7 @@ export class VoxelEngine {
         this.instanceMesh!.setColorAt(i, v.color);
     });
     this.instanceMesh.instanceMatrix.needsUpdate = true;
-    this.instanceMesh.instanceColor!.needsUpdate = true;
+    if (this.instanceMesh.instanceColor) this.instanceMesh.instanceColor.needsUpdate = true;
   }
 
   public dismantle() {
@@ -181,7 +177,6 @@ export class VoxelEngine {
             if (available[i].taken) continue;
 
             const d = this.getColorDist(available[i].color, target.color);
-            // Relaxed penalty for better morphing between diverse colors
             if (d < bestDist) {
                 bestDist = d;
                 bestIdx = i;
@@ -217,18 +212,11 @@ export class VoxelEngine {
   private updatePhysics() {
     if (this.state === AppState.DROPPING) {
         const elapsed = Date.now() - this.dropStartTime;
-        const duration = 4000; // 4 seconds drop
+        const duration = 4000; 
         const t = Math.min(1, elapsed / duration);
-        
-        // Easing: cubic in-out
         const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
-        // Interpolate Position
         this.camera.position.lerpVectors(this.startCameraPos, this.targetCameraPos, ease);
-        
-        // Interpolate LookAt
-        // Intro: Looking DOWN (0, -1, 0 roughly)
-        // Target: Looking at (0, 5, 0)
         
         const startLook = new THREE.Vector3(0, 0, 0);
         const endLook = new THREE.Vector3(0, 5, 0);
@@ -244,11 +232,10 @@ export class VoxelEngine {
     }
     else if (this.state === AppState.DISMANTLING) {
         this.voxels.forEach(v => {
-            v.vy -= 0.025; // Gravity
+            v.vy -= 0.025; 
             v.x += v.vx; v.y += v.vy; v.z += v.vz;
             v.rx += v.rvx; v.ry += v.rvy; v.rz += v.rvz;
 
-            // Floor bounce
             if (v.y < CONFIG.FLOOR_Y + 0.5) {
                 v.y = CONFIG.FLOOR_Y + 0.5;
                 v.vy *= -0.5; v.vx *= 0.9; v.vz *= 0.9;
@@ -290,7 +277,6 @@ export class VoxelEngine {
             this.onStateChange(this.state);
         }
     } else if (this.state === AppState.INTRO) {
-        // Slowly rotate camera high above
         const time = Date.now() * 0.0001;
         this.camera.position.x = Math.sin(time) * 50;
         this.camera.position.z = Math.cos(time) * 50;
@@ -337,7 +323,9 @@ export class VoxelEngine {
 
   public cleanup() {
     cancelAnimationFrame(this.animationId);
-    this.container.removeChild(this.renderer.domElement);
+    if (this.container.contains(this.renderer.domElement)) {
+        this.container.removeChild(this.renderer.domElement);
+    }
     this.renderer.dispose();
   }
 }
