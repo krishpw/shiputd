@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-
 import React, { useEffect, useRef, useState } from 'react';
 import { VoxelEngine } from './engine/VoxelEngine';
 import { Generators } from './utils/generators';
@@ -49,7 +48,7 @@ const App: React.FC = () => {
     engineRef.current = engine;
 
     // Load initial model (UTD Campus)
-    const initialData = Generators[INITIAL_MODEL]();
+    const initialData = (Generators as any)[INITIAL_MODEL]();
     engine.loadInitialModel(initialData);
 
     // Handle Resize
@@ -64,29 +63,30 @@ const App: React.FC = () => {
 
   const handleStartDrop = () => {
       engineRef.current?.triggerSkydive();
-      // Wait for skydive animation to finish (it updates AppState to STABLE automatically)
   };
 
   const handleDismantle = () => {
       engineRef.current?.dismantle();
-      // Transition to Application Page after explosion animation
       setTimeout(() => {
           setAppState(AppState.APPLICATION_PAGE);
       }, 1500);
   };
 
   const handleRebuild = (type: 'Eagle' | 'Cat' | 'Rabbit' | 'Twins') => {
-      // If we are resetting to a default model, generate it
-      // Note: Rebuilding transforms existing voxels into new shape
-      // This works best if the voxel count is somewhat similar, or we might have leftovers/gaps
-      const targetData = Generators[type]();
-      engineRef.current?.rebuild(targetData);
-      setCurrentBaseModel(type);
+      // FIX: Cast Generators to allow indexing of any string key
+      const generatorFn = (Generators as Record<string, () => VoxelData[]>)[type];
+      
+      if (generatorFn) {
+          const targetData = generatorFn();
+          engineRef.current?.rebuild(targetData);
+          setCurrentBaseModel(type);
+      } else {
+          console.warn(`Generator for ${type} not found in utils/generators.ts`);
+      }
   };
 
   const handleNewScene = (type: 'Eagle') => {
-      // Completely resets the scene
-      const data = Generators[type]();
+      const data = (Generators as any)[type]();
       engineRef.current?.loadInitialModel(data);
       setCurrentBaseModel(type);
       setAppState(AppState.STABLE);
@@ -103,15 +103,18 @@ const App: React.FC = () => {
   };
 
   const handlePromptSubmit = async (prompt: string) => {
-      if (!process.env.API_KEY) {
-          alert("API Key is missing. Please configure it in Vercel Settings.");
+      // Vite uses import.meta.env instead of process.env
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+
+      if (!apiKey) {
+          alert("API Key is missing. Add VITE_GEMINI_API_KEY to your Vercel Environment Variables.");
           return;
       }
       
       setIsGenerating(true);
       
       try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const ai = new GoogleGenAI({ apiKey });
         const schema = {
             type: Type.ARRAY,
             items: {
@@ -125,14 +128,12 @@ const App: React.FC = () => {
             }
         };
 
-        const modelName = 'gemini-3-flash-preview';
+        const modelName = 'gemini-1.5-flash'; // Updated to stable 1.5 flash
         const systemPrompt = `
         You are a Voxel Architect. 
         Generate a JSON array of voxel data (x, y, z, color) for the requested object.
         Coordinates should be roughly centered around 0,0,0.
-        Y should be >= 0 (floor is roughly -10, but keep models grounded at y=0 or higher if flying).
-        Use approximately 500-1500 voxels for detailed models.
-        Colors should be varied and realistic.
+        Use approximately 500-1500 voxels.
         Output ONLY the JSON.
         `;
 
@@ -150,8 +151,6 @@ const App: React.FC = () => {
         if (!jsonText) throw new Error("No data returned");
         
         const data = JSON.parse(jsonText) as VoxelData[];
-        
-        // Save history
         const newModel: SavedModel = { name: prompt, data };
 
         if (promptMode === 'create') {
@@ -165,13 +164,12 @@ const App: React.FC = () => {
 
       } catch (error) {
           console.error("Generation failed:", error);
-          alert("Failed to generate model. Please try again.");
+          alert("Generation failed. Check console for details.");
       } finally {
           setIsGenerating(false);
       }
   };
 
-  // Utilities
   const toggleRotation = () => {
       const newState = !isAutoRotate;
       setIsAutoRotate(newState);
@@ -185,7 +183,7 @@ const App: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `voxel-model-${Date.now()}.json`;
+      a.download = `sh1p-model-${Date.now()}.json`;
       a.click();
   };
 
@@ -201,10 +199,9 @@ const App: React.FC = () => {
               try {
                   const data = JSON.parse(ev.target?.result as string);
                   if (Array.isArray(data)) {
-                       // Normalize format if needed (map 'c' to 'color' etc)
                        const formatted = data.map((v: any) => ({
                            x: v.x, y: v.y, z: v.z,
-                           color: typeof v.color === 'number' ? v.color : parseInt(v.c.replace('#', ''), 16)
+                           color: typeof v.color === 'number' ? v.color : 0xffffff
                        }));
                        const name = file.name.replace('.json', '');
                        const model = { name, data: formatted };
@@ -223,16 +220,13 @@ const App: React.FC = () => {
 
   return (
     <div className="relative w-full h-screen bg-slate-900 overflow-hidden">
-        {/* 3D Canvas */}
         <div ref={mountRef} className="w-full h-full" />
 
-        {/* Intro Screen */}
         <LandingScreen 
             visible={appState === AppState.INTRO}
             onStart={handleStartDrop}
         />
 
-        {/* Main UI */}
         <UIOverlay 
             voxelCount={voxelCount}
             appState={appState}
@@ -255,9 +249,7 @@ const App: React.FC = () => {
             onToggleInfo={() => setIsInfoVisible(!isInfoVisible)}
         />
 
-        {/* Application Page */}
         <ApplicationPage visible={appState === AppState.APPLICATION_PAGE} />
-
         <WelcomeScreen visible={isInfoVisible} />
 
         <PromptModal 
