@@ -122,7 +122,7 @@ const App: React.FC = () => {
             }
         };
 
-        const modelName = 'gemini-2.5-flash'; // Good balance of speed/quality
+        const modelName = 'gemini-3-flash-preview';
         const systemPrompt = `
         You are a Voxel Architect. 
         Generate a JSON array of voxel data (x, y, z, color) for the requested object.
