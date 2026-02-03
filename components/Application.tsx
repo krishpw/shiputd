@@ -11,7 +11,7 @@ interface FormData {
   essay: string; // Used for "The Thesis" (Analyst) or "The Payload" (Founder)
 }
 
-export const Application: React.FC = () => {
+const App: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -422,3 +422,5 @@ export const Application: React.FC = () => {
     </section>
   );
 };
+
+export default App;
